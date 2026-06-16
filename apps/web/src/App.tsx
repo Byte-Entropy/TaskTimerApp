@@ -5,7 +5,7 @@ import { Badge, Button, Card, Field, Pill } from '@task-scheduler/ui';
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
-type AppView = 'planner' | 'timer' | 'storage';
+type AppView = 'planner' | 'timer' | 'storage' | 'configs';
 
 type TaskFormState = {
   title: string;
@@ -109,8 +109,9 @@ export function App() {
   }, [state.activeTaskId, state.tasks]);
 
   useEffect(() => {
-    if (!timerTaskId && state.tasks.length > 0) {
-      setTimerTaskId(state.tasks[0].id);
+    const todaysTasks = state.tasks.filter(t => t.plannedDate === todayKey());
+    if (!timerTaskId && todaysTasks.length > 0) {
+      setTimerTaskId(todaysTasks[0].id);
     }
   }, [state.tasks, timerTaskId]);
 
@@ -130,7 +131,7 @@ export function App() {
         };
       }
 
-      const blocks = generateAdaptiveSession(task.estimatedMinutes, current.rewardRatio).blocks;
+      const blocks = generateAdaptiveSession(task.estimatedMinutes, current.config, current.rewardRatio).blocks;
       const currentBlock = blocks[current.timer.blockIndex];
 
       if (!currentBlock) {
@@ -214,11 +215,13 @@ export function App() {
   const overview = useMemo(() => getDayOverview(tasksForDay, state.rewardRatio), [state.rewardRatio, tasksForDay]);
   const activeTask = useMemo(() => findTask(state.tasks, state.activeTaskId), [state.activeTaskId, state.tasks]);
   const selectedTimerTask = useMemo(() => findTask(state.tasks, timerTaskId ?? state.activeTaskId), [state.activeTaskId, state.tasks, timerTaskId]);
+  const unclaimedPoints = selectedTimerTask ? selectedTimerTask.completedMinutes - (selectedTimerTask.claimedWorkMinutes || 0) : 0;
+  const claimableAmount = Math.floor(unclaimedPoints * state.rewardRatio);
   const timerStateForSelectedTask = selectedTimerTask && state.timer.taskId === selectedTimerTask.id ? state.timer : null;
   const selectedTimerBlocks = useMemo(() => {
     if (!selectedTimerTask) return [];
 
-    return generateAdaptiveSession(selectedTimerTask.estimatedMinutes, state.rewardRatio).blocks;
+    return generateAdaptiveSession(selectedTimerTask.estimatedMinutes, current.config, state.rewardRatio).blocks;
   }, [selectedTimerTask, state.rewardRatio]);
   const currentBlockIndex = timerStateForSelectedTask ? timerStateForSelectedTask.blockIndex : selectedTimerTask ? getCurrentBlockIndex(selectedTimerTask, selectedTimerBlocks) : 0;
   const currentBlock = selectedTimerBlocks[currentBlockIndex];
@@ -324,7 +327,7 @@ export function App() {
       return;
     }
 
-    const blocks = generateAdaptiveSession(task.estimatedMinutes, state.rewardRatio).blocks;
+    const blocks = generateAdaptiveSession(task.estimatedMinutes, current.config, state.rewardRatio).blocks;
     const startIndex = state.timer.taskId === taskId && state.timer.remainingSeconds > 0 && state.timer.status !== 'idle'
       ? state.timer.blockIndex
       : getCurrentBlockIndex(task, blocks);
@@ -364,6 +367,36 @@ export function App() {
       timer: buildTimerFallback()
     }));
     setStatus('Timer cleared.');
+  };
+
+  const claimRewards = (taskId: string) => {
+    setState((current) => {
+      const task = current.tasks.find((t) => t.id === taskId);
+      if (!task) return current;
+      const unclaimed = task.completedMinutes - (task.claimedWorkMinutes || 0);
+      if (unclaimed <= 0) return current;
+
+      const reward = Math.floor(unclaimed * current.rewardRatio);
+      return {
+        ...current,
+        bankedRewardMinutes: current.bankedRewardMinutes + reward,
+        tasks: current.tasks.map((t) => t.id === taskId ? { ...t, claimedWorkMinutes: task.completedMinutes } : t)
+      };
+    });
+    setStatus('Rewards claimed.');
+  };
+
+  const extendBreak = () => {
+    if (state.bankedRewardMinutes < 5) return;
+    setState((current) => ({
+      ...current,
+      bankedRewardMinutes: current.bankedRewardMinutes - 5,
+      timer: {
+        ...current.timer,
+        remainingSeconds: current.timer.remainingSeconds + 300
+      }
+    }));
+    setStatus('Extended break by 5 minutes.');
   };
 
   const editTask = (task: Task) => {
@@ -502,6 +535,7 @@ export function App() {
           <button className={`nav-button ${view === 'planner' ? 'is-active' : ''}`} onClick={() => setView('planner')}>Planner</button>
           <button className={`nav-button ${view === 'timer' ? 'is-active' : ''}`} onClick={() => setView('timer')}>Timer</button>
           <button className={`nav-button ${view === 'storage' ? 'is-active' : ''}`} onClick={() => setView('storage')}>Storage</button>
+          <button className={`nav-button ${view === 'configs' ? 'is-active' : ''}`} onClick={() => setView('configs')}>Configs</button>
         </nav>
 
         <div className="sidebar-footer">
@@ -520,7 +554,8 @@ export function App() {
           <div className="topbar-actions">
             <Card tone="soft"><span className="stat-label">Today</span><strong>{todayKey()}</strong></Card>
             <Card tone="soft"><span className="stat-label">Tasks</span><strong>{overview.taskCount}</strong></Card>
-            <Card tone="soft"><span className="stat-label">Reward</span><strong>{formatMinutes(overview.rewardMinutes)}</strong></Card>
+            {/* <Card tone="soft"><span className="stat-label">Reward</span><strong>{formatMinutes(overview.rewardMinutes)}</strong></Card> */}
+            <Card tone="soft"><span className="stat-label">Banked Time</span><strong>{formatMinutes(state.bankedRewardMinutes)}</strong></Card>
           </div>
         </header>
 
@@ -568,7 +603,7 @@ export function App() {
               <div className="task-list">
                 {tasksForDay.length === 0 ? <p className="empty-state">No tasks planned for this day yet.</p> : null}
                 {tasksForDay.map((task) => {
-                  const session = generateAdaptiveSession(task.estimatedMinutes, state.rewardRatio);
+                  const session = generateAdaptiveSession(task.estimatedMinutes, current.config, state.rewardRatio);
                   const progress = task.estimatedMinutes === 0 ? 0 : Math.round((task.completedMinutes / task.estimatedMinutes) * 100);
 
                   return (
@@ -608,20 +643,20 @@ export function App() {
           </section>
         ) : null}
 
-        {view === 'timer' ? (
+      {view === 'timer' ? (
           <section className="timer-layout">
             <Card className="panel timer-panel">
               <div className="panel-head">
                 <div>
                   <h2>Current task</h2>
-                  <p>Start a task, pause it, and watch the block ring advance as work and breaks complete.</p>
+                  <p>Start a task, pause it, and watch the time fly.</p>
                 </div>
                 <div className="timer-picker">
                   <label>
                     <span>Choose task</span>
                     <select value={timerTaskId ?? ''} onChange={(event) => setTimerTaskId(event.target.value)}>
                       <option value="">Select a task</option>
-                      {state.tasks.map((task) => (
+                      {state.tasks.filter((task) => task.plannedDate === todayKey()).map((task) => (
                         <option key={task.id} value={task.id}>{task.title}</option>
                       ))}
                     </select>
@@ -665,6 +700,16 @@ export function App() {
                     <div className="actions-row wrap">
                       <Button onClick={() => void startTimerForTask(selectedTimerTask.id)}>{state.timer.taskId === selectedTimerTask.id && state.timer.status === 'running' ? 'Pause' : state.timer.taskId === selectedTimerTask.id && state.timer.status === 'paused' ? 'Resume' : 'Start task'}</Button>
                       <Button variant="ghost" onClick={stopTimer}>Clear timer</Button>
+                      {claimableAmount > 0 && (
+                        <Button variant="ghost" onClick={() => claimRewards(selectedTimerTask.id)}>
+                          Claim {claimableAmount}m
+                        </Button>
+                      )}
+                      {currentBlock?.type === 'break' && state.timer.status === 'running' && (
+                        <Button variant="ghost" onClick={extendBreak} disabled={state.bankedRewardMinutes < 5}>
+                          +5m Break (Cost 5m)
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

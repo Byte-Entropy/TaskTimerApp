@@ -41,7 +41,7 @@ function normalizePlannerState(state: Partial<PlannerState>): PlannerState {
 
   return {
     activeDate: typeof state.activeDate === 'string' ? state.activeDate : defaults.activeDate,
-    tasks: Array.isArray(state.tasks) ? state.tasks : defaults.tasks,
+    // tasks: Array.isArray(state.tasks) ? state.tasks : defaults.tasks,
     rewardRatio: typeof state.rewardRatio === 'number' ? state.rewardRatio : defaults.rewardRatio,
     activeTaskId: typeof state.activeTaskId === 'string' || state.activeTaskId === null ? state.activeTaskId ?? null : defaults.activeTaskId,
     timer: {
@@ -51,6 +51,17 @@ function normalizePlannerState(state: Partial<PlannerState>): PlannerState {
       status: state.timer && (state.timer.status === 'idle' || state.timer.status === 'running' || state.timer.status === 'paused')
         ? state.timer.status
         : defaults.timer.status
-    }
+    },
+    bankedRewardMinutes: typeof state.bankedRewardMinutes === 'number' ? state.bankedRewardMinutes : defaults.bankedRewardMinutes,
+    config: state.config ? {
+      startWork: typeof state.config.startWork === 'number' ? state.config.startWork : defaults.config.startWork,
+      peakWork: typeof state.config.peakWork === 'number' ? state.config.peakWork : defaults.config.peakWork,
+      peakBreak: typeof state.config.peakBreak === 'number' ? state.config.peakBreak : defaults.config.peakBreak,
+      taperStartFraction: typeof state.config.taperStartFraction === 'number' ? state.config.taperStartFraction : defaults.config.taperStartFraction,
+    } : defaults.config,
+    tasks: Array.isArray(state.tasks) ? state.tasks.map(t => ({
+      ...t,
+      claimedWorkMinutes: typeof t.claimedWorkMinutes === 'number' ? t.claimedWorkMinutes : 0
+    })) : defaults.tasks,
   };
 }

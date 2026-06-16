@@ -1,3 +1,10 @@
+export type SessionConfig = {
+  startWork: number;
+  peakWork: number;
+  peakBreak: number;
+  taperStartFraction: number;
+};
+
 export type TaskStatus = 'planned' | 'active' | 'done';
 
 export type Task = {
@@ -11,6 +18,9 @@ export type Task = {
   completedMinutes: number;
   status: TaskStatus;
   createdAt: string;
+  status: TaskStatus;
+  createdAt: string;
+  claimedWorkMinutes?: number;
 };
 
 export type PlannerState = {
@@ -19,6 +29,10 @@ export type PlannerState = {
   rewardRatio: number;
   activeTaskId: string | null;
   timer: TimerState;
+  activeTaskId: string | null;
+  timer: TimerState;
+  bankedRewardMinutes: number;
+  config: SessionConfig;
 };
 
 export type TimerState = {
@@ -56,6 +70,13 @@ export const defaultPlannerState = (): PlannerState => ({
     blockIndex: 0,
     remainingSeconds: 0,
     status: 'idle'
+  },
+  bankedRewardMinutes: 0,
+  config: {
+    startWork: 5,
+    peakWork: 45,
+    peakBreak: 10,
+    taperStartFraction: 0.8
   }
 });
 
@@ -71,46 +92,41 @@ const openerBlocks: SessionBlock[] = [
   { type: 'break', minutes: 10 }
 ];
 
-export function generateAdaptiveSession(totalMinutes: number, rewardRatio = 0.2): SessionPlan {
+export function generateAdaptiveSession(totalMinutes: number, config: SessionConfig, rewardRatio = 0.2): SessionPlan {
   const blocks: SessionBlock[] = [];
   let remainingWork = Math.max(0, totalMinutes);
   let workCompleted = 0;
-  let previousWork = 5;
-
-  for (const block of openerBlocks) {
-    if (block.type === 'work') {
-      if (remainingWork <= 0) break;
-      const minutes = Math.min(block.minutes, remainingWork);
-      blocks.push({ type: 'work', minutes });
-      remainingWork -= minutes;
-      workCompleted += minutes;
-      previousWork = minutes;
-      continue;
-    }
-
-    if (workCompleted > 0 && remainingWork > 0) {
-      blocks.push(block);
-    }
-  }
 
   while (remainingWork > 0) {
     const progress = workCompleted / Math.max(totalMinutes, 1);
-    const growthFactor = 1.35 - progress * 0.35;
-    const fatigueFactor = 1 - progress * 0.45;
-    const rawNext = previousWork * growthFactor * fatigueFactor;
-    const ceiling = Math.max(10, remainingWork * (1 - progress * 0.4));
-    const nextWork = roundToFive(clamp(rawNext, 5, ceiling));
+    let nextWork: number;
+
+    if (progress < 0.2) {
+      // Exponential curve up to 20% of work
+      const t = progress / 0.2;
+      nextWork = config.startWork + (config.peakWork - config.startWork) * Math.pow(t, 2);
+    } else if (progress < config.taperStartFraction) {
+      // Plateau at peakWork
+      nextWork = config.peakWork;
+    } else {
+      // Exponential taper off
+      const t = (progress - config.taperStartFraction) / (1 - config.taperStartFraction);
+      nextWork = config.peakWork - (config.peakWork - config.startWork) * Math.pow(t, 2);
+    }
+
+    nextWork = roundToFive(clamp(nextWork, 5, remainingWork));
     const actualWork = Math.min(nextWork, remainingWork);
 
     blocks.push({ type: 'work', minutes: actualWork });
     workCompleted += actualWork;
     remainingWork -= actualWork;
-    previousWork = actualWork;
 
     if (remainingWork <= 0) break;
 
-    const nextBreak = roundToFive(clamp(actualWork * 0.25, 5, 15));
-    blocks.push({ type: 'break', minutes: nextBreak });
+    const breakRatio = config.peakBreak / config.peakWork;
+    const rawBreak = actualWork * breakRatio;
+    const actualBreak = roundToFive(clamp(rawBreak, 5, config.peakBreak));
+    blocks.push({ type: 'break', minutes: actualBreak });
   }
 
   return {
@@ -119,6 +135,56 @@ export function generateAdaptiveSession(totalMinutes: number, rewardRatio = 0.2)
     totalWorkMinutes: workCompleted
   };
 }
+
+// export function generateAdaptiveSession(totalMinutes: number, rewardRatio = 0.2): SessionPlan {
+
+//   const blocks: SessionBlock[] = [];
+//   let remainingWork = Math.max(0, totalMinutes);
+//   let workCompleted = 0;
+//   let previousWork = 5;
+
+//   for (const block of openerBlocks) {
+//     if (block.type === 'work') {
+//       if (remainingWork <= 0) break;
+//       const minutes = Math.min(block.minutes, remainingWork);
+//       blocks.push({ type: 'work', minutes });
+//       remainingWork -= minutes;
+//       workCompleted += minutes;
+//       previousWork = minutes;
+//       continue;
+//     }
+
+//     if (workCompleted > 0 && remainingWork > 0) {
+//       blocks.push(block);
+//     }
+//   }
+
+//   while (remainingWork > 0) {
+//     const progress = workCompleted / Math.max(totalMinutes, 1);
+//     const growthFactor = 1.35 - progress * 0.35;
+//     const fatigueFactor = 1 - progress * 0.45;
+//     const rawNext = previousWork * growthFactor * fatigueFactor;
+//     const ceiling = Math.max(10, remainingWork * (1 - progress * 0.4));
+//     const nextWork = roundToFive(clamp(rawNext, 5, ceiling));
+//     const actualWork = Math.min(nextWork, remainingWork);
+
+//     blocks.push({ type: 'work', minutes: actualWork });
+//     workCompleted += actualWork;
+//     remainingWork -= actualWork;
+//     previousWork = actualWork;
+
+//     if (remainingWork <= 0) break;
+
+//     const nextBreak = roundToFive(clamp(actualWork * 0.25, 5, 15));
+//     blocks.push({ type: 'break', minutes: nextBreak });
+//   }
+
+//   return {
+//     blocks,
+//     rewardMinutes: Math.max(5, Math.round(workCompleted * rewardRatio)),
+//     totalWorkMinutes: workCompleted
+//   };
+// }
 
 export function sortTasksForDay(tasks: Task[], day: string): Task[] {
   return [...tasks]
