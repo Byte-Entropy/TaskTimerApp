@@ -1,0 +1,23 @@
+--- Project Requirements ---
+- Node.js 22 LTS
+- pnpm 9+
+- Git
+- A modern Chromium-based browser for testing
+- VS Code recommended
+- No backend required for MVP
+- JSON file storage required for MVP
+
+* optionals*
+- Optional later: Tauri or Electron for desktop packaging
+|-> 		https://v2.tauri.app/
+||->	- Optional later: mobile packaging only after the web MVP is stable
+
+- Optional later: SQLite if you want a real local database after the prototype
+
+
+--- Structure ---
+apps/web for the UI
+packages/core for scheduling and reward logic
+packages/storage for JSON persistence
+packages/ui for reusable visual pieces
+templates for future feature scaffolds

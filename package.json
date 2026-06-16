@@ -1,0 +1,11 @@
+{
+  "name": "lightweight-task-scheduler",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "dev": "pnpm --filter @task-scheduler/web dev",
+    "build": "pnpm --filter @task-scheduler/web build",
+    "preview": "pnpm --filter @task-scheduler/web preview"
+  }
+}

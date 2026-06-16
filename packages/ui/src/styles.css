@@ -1,0 +1,77 @@
+.ui-card {
+  border-radius: 18px;
+  border: 1px solid rgba(134, 154, 190, 0.16);
+  background: #111a2a;
+}
+
+.ui-card.soft {
+  background: #152033;
+  padding: 0.9rem;
+}
+
+.ui-badge,
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(134, 154, 190, 0.16);
+  background: #172335;
+  color: #edf3ff;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.ui-button {
+  border: 0;
+  border-radius: 999px;
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+}
+
+.ui-button:hover {
+  transform: translateY(-1px);
+}
+
+.ui-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ui-button.solid {
+  color: #08111e;
+  font-weight: 700;
+  background: #8fe3cf;
+}
+
+.ui-button.ghost {
+  color: #edf3ff;
+  background: #172335;
+  border: 1px solid rgba(134, 154, 190, 0.16);
+}
+
+.ui-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ui-field span {
+  font-size: 0.9rem;
+  color: #94a7c7;
+}
+
+.ui-field input {
+  width: 100%;
+  min-height: 2.7rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(134, 154, 190, 0.18);
+  background: #0d1524;
+  color: #edf3ff;
+}
+
+.ui-field.compact input {
+  min-width: 170px;
+}

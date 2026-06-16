@@ -1,0 +1,16 @@
+{
+  "name": "@task-scheduler/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "react": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8"
+  },
+  "exports": {
+    ".": "./src/index.tsx"
+  }
+}
+
