@@ -102,15 +102,20 @@ export function generateAdaptiveSession(totalMinutes: number, config: SessionCon
     let nextWork: number;
 
     if (progress < 0.2) {
-      // Exponential curve up to 20% of work
+      // Ramp up phase:
       const t = progress / 0.2;
+      
+      // growth formula
       nextWork = config.startWork + (config.peakWork - config.startWork) * Math.pow(t, 2);
+      
     } else if (progress < config.taperStartFraction) {
-      // Plateau at peakWork
+      // Plateau phase:
       nextWork = config.peakWork;
     } else {
-      // Exponential taper off
+      // Taper down phase:
       const t = (progress - config.taperStartFraction) / (1 - config.taperStartFraction);
+      
+      // -Decay formula
       nextWork = config.peakWork - (config.peakWork - config.startWork) * Math.pow(t, 2);
     }
 

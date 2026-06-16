@@ -221,7 +221,7 @@ export function App() {
   const selectedTimerBlocks = useMemo(() => {
     if (!selectedTimerTask) return [];
 
-    return generateAdaptiveSession(selectedTimerTask.estimatedMinutes, current.config, state.rewardRatio).blocks;
+    return generateAdaptiveSession(selectedTimerTask.estimatedMinutes, state.config, state.rewardRatio).blocks;
   }, [selectedTimerTask, state.rewardRatio]);
   const currentBlockIndex = timerStateForSelectedTask ? timerStateForSelectedTask.blockIndex : selectedTimerTask ? getCurrentBlockIndex(selectedTimerTask, selectedTimerBlocks) : 0;
   const currentBlock = selectedTimerBlocks[currentBlockIndex];
@@ -327,7 +327,7 @@ export function App() {
       return;
     }
 
-    const blocks = generateAdaptiveSession(task.estimatedMinutes, current.config, state.rewardRatio).blocks;
+    const blocks = generateAdaptiveSession(task.estimatedMinutes, state.config, state.rewardRatio).blocks;
     const startIndex = state.timer.taskId === taskId && state.timer.remainingSeconds > 0 && state.timer.status !== 'idle'
       ? state.timer.blockIndex
       : getCurrentBlockIndex(task, blocks);
@@ -548,7 +548,7 @@ export function App() {
         <header className="topbar card">
           <div>
             <span className="eyebrow">Local-first study planner</span>
-            <h2>{view === 'planner' ? 'Planner' : view === 'timer' ? 'Current task' : 'Storage'}</h2>
+            <h2>{view === 'planner' ? 'Planner' : view === 'timer' ? 'Current task' : view === 'configs' ? 'Configs' : 'Storage'}</h2>
           </div>
 
           <div className="topbar-actions">
@@ -603,7 +603,7 @@ export function App() {
               <div className="task-list">
                 {tasksForDay.length === 0 ? <p className="empty-state">No tasks planned for this day yet.</p> : null}
                 {tasksForDay.map((task) => {
-                  const session = generateAdaptiveSession(task.estimatedMinutes, current.config, state.rewardRatio);
+                  const session = generateAdaptiveSession(task.estimatedMinutes, state.config, state.rewardRatio);
                   const progress = task.estimatedMinutes === 0 ? 0 : Math.round((task.completedMinutes / task.estimatedMinutes) * 100);
 
                   return (
@@ -781,6 +781,24 @@ export function App() {
                 <div><span>Notifications</span><strong>{'Notification' in window ? Notification.permission : 'unsupported'}</strong></div>
                 <div><span>Active task</span><strong>{activeTask?.title ?? 'None'}</strong></div>
                 <div><span>Timer mode</span><strong>{state.timer.status}</strong></div>
+              </div>
+            </Card>
+          </section>
+        ) : null}
+        {view === 'configs' ? (
+          <section className="content-grid">
+            <Card className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>Session Curve Algorithm</h2>
+                  <p>Tweak the math curve properties that generate your adaptive timer blocks.</p>
+                </div>
+              </div>
+              <div className="form-grid">
+                <Field label="Start Work (min)" type="number" value={String(state.config?.startWork ?? 5)} onChange={(v) => setState((c) => ({ ...c, config: { ...c.config, startWork: Number(v) || 5 } }))} />
+                <Field label="Peak Work (min)" type="number" value={String(state.config?.peakWork ?? 45)} onChange={(v) => setState((c) => ({ ...c, config: { ...c.config, peakWork: Number(v) || 45 } }))} />
+                <Field label="Peak Break (min)" type="number" value={String(state.config?.peakBreak ?? 10)} onChange={(v) => setState((c) => ({ ...c, config: { ...c.config, peakBreak: Number(v) || 10 } }))} />
+                <Field label="Taper Threshold (0-1)" type="number" step="0.1" value={String(state.config?.taperStartFraction ?? 0.8)} onChange={(v) => setState((c) => ({ ...c, config: { ...c.config, taperStartFraction: Number(v) || 0.8 } }))} />
               </div>
             </Card>
           </section>
